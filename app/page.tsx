@@ -1,94 +1,191 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useState } from "react";
+
+const transformations = [
+  {
+    name: "Natural",
+    description: "Perubahan ringan dan tetap natural",
+  },
+  {
+    name: "Curvy",
+    description: "Bentuk tubuh lebih curvy dengan proporsi realistis",
+  },
+  {
+    name: "Curvy + Muscular",
+    description: "Curvy dengan otot paha, glute, bahu, dada dan lengan lebih berkembang",
+  },
+  {
+    name: "Muscular",
+    description: "Fokus pada massa dan definisi otot",
+  },
+];
+
+const focuses = [
+  "Balanced",
+  "Lower Body",
+  "Upper Body",
+  "Definition",
+];
+
+function buildPrompt(transformation: string, focus: string) {
+  return `Edit the uploaded photograph as a realistic fitness physique transformation.
+
+TRANSFORMATION:
+${transformation}
+
+FOCUS:
+${focus}
+
+Preserve the person's identity, face, facial features, age, hairstyle, skin tone,
+skin texture, clothing, pose, camera angle, lighting, environment and background.
+
+Change only the physique.
+
+Create a realistic and anatomically believable result:
+- naturally curvy proportions
+- fuller hips and glutes
+- fuller and stronger thighs
+- stronger shoulders
+- stronger chest
+- stronger arms
+- realistic muscle definition
+- natural body proportions
+- realistic anatomy
+- natural skin texture
+- realistic shadows
+- realistic clothing behavior
+
+For Lower Body focus, emphasize thighs, glutes and hips.
+
+For Upper Body focus, emphasize shoulders, chest and arms.
+
+For Definition focus, emphasize visible but natural muscle definition
+without making the physique look artificial.
+
+For Balanced focus, distribute the transformation naturally across the body.
+
+Keep the original person's identity unchanged.
+Do not change the face.
+Do not add another person.
+Do not add text, logos, watermarks or tattoos.
+Do not create fantasy anatomy.
+
+The final image must look like a real photograph taken with a real camera,
+with natural skin texture, realistic lighting and believable proportions.`;
+}
 
 export default function Home() {
-  const inputRef = useRef<HTMLInputElement>(null);
-  const [file, setFile] = useState<File | null>(null);
-  const [preview, setPreview] = useState("");
-  const [result, setResult] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
+  const [transformation, setTransformation] = useState("Curvy + Muscular");
+  const [focus, setFocus] = useState("Balanced");
+  const [prompt, setPrompt] = useState("");
+  const [copied, setCopied] = useState(false);
 
-  function choose(f: File | undefined) {
-    if (!f) return;
-    if (!f.type.startsWith("image/")) return setError("Pilih file gambar JPG, PNG, WEBP, atau HEIC.");
-    if (f.size > 15 * 1024 * 1024) return setError("Ukuran foto maksimal 15 MB.");
-    setError("");
-    setFile(f);
-    setResult("");
-    setPreview(URL.createObjectURL(f));
+  function generatePrompt() {
+    const result = buildPrompt(transformation, focus);
+    setPrompt(result);
+    setCopied(false);
   }
 
-  async function generate() {
-    if (!file) return;
-    setBusy(true);
-    setError("");
-    setResult("");
-    try {
-      const fd = new FormData();
-      fd.append("image", file);
-      const res = await fetch("/api/edit", { method: "POST", body: fd });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Gagal memproses foto.");
-      setResult(`data:${data.mime};base64,${data.image}`);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Terjadi kesalahan.");
-    } finally {
-      setBusy(false);
-    }
+  async function copyPrompt() {
+    if (!prompt) return;
+
+    await navigator.clipboard.writeText(prompt);
+    setCopied(true);
+
+    setTimeout(() => {
+      setCopied(false);
+    }, 2000);
   }
 
   return (
-    <main>
-      <section className="hero">
-        <div className="badge">OPENAI IMAGE EDITOR</div>
-        <h1>Curvy Muscle <span>AI</span></h1>
-        <p>Ubah bentuk tubuh menjadi lebih curvy dan berotot dengan hasil yang tetap realistis.</p>
-      </section>
+    <main className="container">
+      <div className="badge">OPENAI IMAGE WORKFLOW</div>
+
+      <h1>
+        Curvy Muscle <span>AI</span>
+      </h1>
+
+      <p className="subtitle">
+        Buat prompt transformasi tubuh yang realistis untuk digunakan
+        langsung di ChatGPT.
+      </p>
 
       <section className="card">
-        <div
-          className="drop"
-          onClick={() => inputRef.current?.click()}
-          onDragOver={(e) => e.preventDefault()}
-          onDrop={(e) => { e.preventDefault(); choose(e.dataTransfer.files?.[0]); }}
-        >
-          <input ref={inputRef} type="file" accept="image/*" hidden
-            onChange={(e) => choose(e.target.files?.[0])} />
-          {preview ? <img src={preview} alt="Foto asli" /> : (
-            <>
-              <div className="uploadIcon">＋</div>
-              <strong>Upload foto</strong>
-              <small>JPG, PNG, WEBP — maksimal 15 MB</small>
-            </>
-          )}
+        <div className="sectionTitle">Transformasi</div>
+
+        <div className="options">
+          {transformations.map((item) => (
+            <button
+              key={item.name}
+              className={`option ${
+                transformation === item.name ? "selected" : ""
+              }`}
+              onClick={() => setTransformation(item.name)}
+            >
+              <strong>{item.name}</strong>
+              <small>{item.description}</small>
+            </button>
+          ))}
         </div>
 
-        <div className="controls">
-          <div>
-            <label>Transformasi</label>
-            <div className="preset">Curvy + Muscular <span>AI</span></div>
-          </div>
-          <button disabled={!file || busy} onClick={generate}>
-            {busy ? "Memproses…" : "Generate"}
-          </button>
+        <div className="sectionTitle focusTitle">Fokus tubuh</div>
+
+        <div className="focusGrid">
+          {focuses.map((item) => (
+            <button
+              key={item}
+              className={`focus ${
+                focus === item ? "selected" : ""
+              }`}
+              onClick={() => setFocus(item)}
+            >
+              {item}
+            </button>
+          ))}
         </div>
 
-        {error && <div className="error">{error}</div>}
-
-        {result && (
-          <div className="result">
-            <div className="resultHead">
-              <strong>Hasil</strong>
-              <a href={result} download="curvy-muscle-result.png">Download</a>
-            </div>
-            <img src={result} alt="Hasil edit AI" />
-          </div>
-        )}
+        <button className="generate" onClick={generatePrompt}>
+          Generate Prompt
+        </button>
       </section>
 
-      <footer>Foto diproses melalui server dan API key tidak pernah dikirim ke browser.</footer>
+      {prompt && (
+        <section className="result card">
+          <div className="resultHeader">
+            <div>
+              <div className="sectionTitle">Prompt siap digunakan</div>
+              <p>
+                Salin prompt ini lalu gunakan bersama foto kamu di ChatGPT.
+              </p>
+            </div>
+
+            <button className="copy" onClick={copyPrompt}>
+              {copied ? "Copied ✓" : "Copy Prompt"}
+            </button>
+          </div>
+
+          <textarea
+            value={prompt}
+            readOnly
+            onClick={(e) => e.currentTarget.select()}
+          />
+
+          <a
+            className="chatgpt"
+            href="https://chatgpt.com/"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Buka ChatGPT →
+          </a>
+        </section>
+      )}
+
+      <p className="footer">
+        Foto tidak dikirim ke server aplikasi ini. Gunakan foto langsung di
+        ChatGPT untuk melakukan proses edit gambar.
+      </p>
     </main>
   );
 }
